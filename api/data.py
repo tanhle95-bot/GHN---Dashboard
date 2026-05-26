@@ -15,13 +15,18 @@ def fast_parse_sheet(z, sheet_file, strings):
     ns_sheet = {"ns": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
     for r in root_sheet.findall(".//ns:row", ns_sheet):
         row_cells = {}
+        curr_col_idx = 0
         for c in r.findall("ns:c", ns_sheet):
             ref = c.get("r")
-            col_letter = "".join(filter(str.isalpha, ref))
-            col_idx = 0
-            for char in col_letter:
-                col_idx = col_idx * 26 + (ord(char) - ord("A") + 1)
-            col_idx -= 1
+            if ref is not None:
+                col_letter = "".join(filter(str.isalpha, ref))
+                col_idx = 0
+                for char in col_letter:
+                    col_idx = col_idx * 26 + (ord(char) - ord("A") + 1)
+                col_idx -= 1
+                curr_col_idx = col_idx
+            else:
+                col_idx = curr_col_idx
             
             t = c.get("t")
             v_el = c.find("ns:v", ns_sheet)
@@ -29,15 +34,19 @@ def fast_parse_sheet(z, sheet_file, strings):
             if v_el is not None:
                 v_text = v_el.text
                 if t == "s":
-                    val = strings[int(v_text)]
+                    try:
+                        val = strings[int(v_text)] if v_text is not None else None
+                    except (IndexError, ValueError, TypeError):
+                        val = v_text
                 elif t == "b":
                     val = v_text == "1"
                 else:
                     try:
-                        val = float(v_text) if "." in v_text or "e" in v_text.lower() else int(v_text)
+                        val = float(v_text) if v_text is not None and ("." in v_text or "e" in v_text.lower()) else int(v_text) if v_text is not None else None
                     except ValueError:
                         val = v_text
             row_cells[col_idx] = val
+            curr_col_idx = col_idx + 1
             
         if row_cells:
             max_idx = max(row_cells.keys())
@@ -90,6 +99,7 @@ class handler(BaseHTTPRequestHandler):
                 sheet_targets[name] = "xl/" + target
             
             data = {
+                "overall_gtc": 0.0,
                 "gtc_ratio": [],
                 "delayed_orders": [],
                 "b2b_orders": [],
@@ -187,17 +197,10 @@ class handler(BaseHTTPRequestHandler):
                     if not row or len(row) < 3:
                         continue
                     
-                    has_hanoi = False
-                    for val in row:
-                        if val is not None:
-                            val_str = str(val).lower()
-                            if any(kw in val_str for kw in hanoi_keywords_b2b):
-                                has_hanoi = True
-                                break
-                                
-                    if has_hanoi:
+                    wh_val = str(row[2]) if row[2] is not None else ""
+                    wh_lower = wh_val.lower()
+                    if any(kw in wh_lower for kw in hanoi_keywords_b2b):
                         priority_val = str(row[0]) if row[0] is not None else "Không xác định"
-                        wh_val = str(row[2]) if row[2] is not None else "Không xác định"
                         
                         priorities_set.add(priority_val)
                         if wh_val not in b2b_groups:
@@ -225,12 +228,14 @@ class handler(BaseHTTPRequestHandler):
                 col_status_inst = header.index("Trạng thái đơn hàng")
                 col_type_inst = header.index("Type lắp đặt")
                 col_buyer_inst = header.index("Buyer đồng ý lắp đặt?")
+                col_prov_inst = header.index("Tỉnh giao")
+                col_prod_inst = header.index("Loại sản phẩm")
                 
                 for row in rows_inst[1:]:
-                    if not row or len(row) <= max(col_wh_inst, col_code_inst, col_status_inst, col_type_inst, col_buyer_inst):
+                    if not row or len(row) <= max(col_wh_inst, col_code_inst, col_status_inst, col_type_inst, col_buyer_inst, col_prov_inst, col_prod_inst):
                         continue
                     wh_val = str(row[col_wh_inst]) if row[col_wh_inst] is not None else ""
-                    if "Hà Nội" in wh_val or "HNO" in wh_val:
+                    if "Hà Nội" in wh_val or "HNO" in wh_val or "Đông Anh" in wh_val:
                         type_inst = str(row[col_type_inst]) if row[col_type_inst] is not None else ""
                         buyer_inst = str(row[col_buyer_inst]) if row[col_buyer_inst] is not None else ""
                         
@@ -238,7 +243,10 @@ class handler(BaseHTTPRequestHandler):
                             "order_code": str(row[col_code_inst]) if row[col_code_inst] is not None else "",
                             "warehouse": wh_val,
                             "status": str(row[col_status_inst]) if row[col_status_inst] is not None else "",
-                            "install_type": type_inst
+                            "install_type": type_inst,
+                            "buyer_agreed": buyer_inst,
+                            "province": str(row[col_prov_inst]) if row[col_prov_inst] is not None else "",
+                            "product_type": str(row[col_prod_inst]) if row[col_prod_inst] is not None else ""
                         }
                         
                         if type_inst == "Đã lắp đặt":
@@ -248,6 +256,14 @@ class handler(BaseHTTPRequestHandler):
                                 data["installation_orders"]["discrepancy"].append(item)
                             else:
                                 data["installation_orders"]["pending"].append(item)
+            
+            # 5. Tỉ lệ GTC Tổng hợp Hà Nội (GXT-HNO) (Sheet: 1. Backlog)
+            if "1. Backlog" in sheet_targets:
+                rows_backlog = fast_parse_sheet(z, sheet_targets["1. Backlog"], strings)
+                for row in rows_backlog:
+                    if len(row) > 10 and row[8] == "GXT-HNO":
+                        data["overall_gtc"] = float(row[10]) * 100 if row[10] is not None else 0.0
+                        break
             
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
