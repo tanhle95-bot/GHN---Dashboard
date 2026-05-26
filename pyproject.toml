@@ -1,2 +1,11 @@
+[project]
+name = "ghn-dashboard"
+version = "0.1.0"
+description = "GHN Dashboard"
+requires-python = ">=3.9"
+dependencies = [
+    "openpyxl==3.1.2"
+]
+
 [tool.vercel]
 entrypoint = "api.data:handler"
