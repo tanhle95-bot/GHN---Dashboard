@@ -1,20 +1,21 @@
 from http.server import BaseHTTPRequestHandler
 import json
-import pandas as pd
 import urllib.request
 import io
-import warnings
-
-warnings.filterwarnings("ignore")
+import openpyxl
 
 URL = "https://docs.google.com/spreadsheets/d/1Kjqwt6MIghCzfCSifVrpIpVHbC0o77lxMVVFlCZ26xY/export?format=xlsx"
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
         try:
+            # Tải file Excel về bộ nhớ
             req = urllib.request.Request(URL, headers={"User-Agent": "Mozilla/5.0"})
             response = urllib.request.urlopen(req)
             excel_data = io.BytesIO(response.read())
+            
+            # Khởi tạo workbook dạng đọc tối ưu (read_only và data_only)
+            wb = openpyxl.load_workbook(excel_data, read_only=True, data_only=True)
             
             data = {
                 "gtc_ratio": [],
@@ -27,76 +28,165 @@ class handler(BaseHTTPRequestHandler):
                 }
             }
             
-            # 1. GTC Ratio
-            df_hieusuat = pd.read_excel(excel_data, sheet_name="raw_hieusuat")
-            hanoi_hieusuat = df_hieusuat[df_hieusuat["warehouse_name"].astype(str).str.contains("Kho Giao Hàng Nặng", na=False)]
-            hanoi_hieusuat = hanoi_hieusuat[hanoi_hieusuat["warehouse_name"].astype(str).str.contains("Hà Nội|HNO|Long Biên|Bắc Từ Liêm|Thanh Oai|Hoài Đức|Đức Long|Thanh Trì|Đông Anh", na=False)]
-            
-            gtc_summary = hanoi_hieusuat.groupby("warehouse_name").agg(
-                total_assigned=("sld", "sum"),
-                total_success=("sld_gtc", "sum")
-            ).reset_index()
-            gtc_summary["gtc_ratio"] = (gtc_summary["total_success"] / gtc_summary["total_assigned"]) * 100
-            gtc_summary = gtc_summary.sort_values(by="gtc_ratio", ascending=False)
-            data["gtc_ratio"] = gtc_summary.fillna(0).to_dict(orient="records")
-            
-            # 2. Delayed Orders > 3D
-            df_3d = pd.read_excel(excel_data, sheet_name="4. Đơn >3D")
-            col_wh = df_3d.columns[1]
-            df_delayed = df_3d[[col_wh, df_3d.columns[2], df_3d.columns[3], df_3d.columns[4]]].copy()
-            df_delayed = df_delayed[df_delayed[col_wh].astype(str).str.contains("Kho Giao Hàng Nặng.*Hà Nội|Kho Giao Hàng Nặng - Long Biên|Kho Giao Hàng Nặng - Bắc Từ Liêm|Kho Giao Hàng Nặng - Thanh Oai|Kho Giao Hàng Nặng - Hoài Đức|Kho Giao Hàng Nặng - Đức Long|Kho Giao Hàng Nặng - Thanh Trì|Kho Giao Hàng Nặng - Đông Anh", case=False, na=False)]
-            df_delayed.columns = ["warehouse", "total_3d", "over_7d", "4_to_7d"]
-            for col in ["total_3d", "over_7d", "4_to_7d"]:
-                df_delayed[col] = pd.to_numeric(df_delayed[col], errors="coerce").fillna(0)
+            # 1. Xử lý GTC Ratio (Sheet: raw_hieusuat)
+            if "raw_hieusuat" in wb.sheetnames:
+                sheet = wb["raw_hieusuat"]
+                rows = sheet.iter_rows(values_only=True)
+                header = next(rows)
                 
-            def get_status(row):
-                if row["over_7d"] >= 10 or row["total_3d"] >= 100:
-                    return "Cảnh báo"
-                elif row["over_7d"] > 0 or row["total_3d"] >= 20:
-                    return "Cần lưu ý"
-                else:
-                    return "Bình thường"
-                    
-            df_delayed["status"] = df_delayed.apply(get_status, axis=1)
-            df_delayed = df_delayed.sort_values(by="total_3d", ascending=False)
-            data["delayed_orders"] = df_delayed.to_dict(orient="records")
-            
-            # 3. B2B Priority Orders
-            df_b2b = pd.read_excel(excel_data, sheet_name="6.2 B2B | Đơn ƯU TIÊN GIAO")
-            col_priority = df_b2b.columns[0]
-            col_wh_b2b = df_b2b.columns[2]
-            
-            mask_b2b = pd.Series([False] * len(df_b2b))
-            for col in df_b2b.columns:
-                if df_b2b[col].dtype == object:
-                    mask_b2b = mask_b2b | df_b2b[col].astype(str).str.contains("Hà Nội|HNO|Long Biên|Bắc Từ Liêm|Thanh Oai|Hoài Đức|Đức Long|Thanh Trì|Đông Anh", case=False, na=False)
-                    
-            hanoi_b2b = df_b2b[mask_b2b]
-            b2b_summary = hanoi_b2b.groupby([col_wh_b2b, col_priority]).size().reset_index(name="count")
-            
-            pivot_b2b = b2b_summary.pivot(index=col_wh_b2b, columns=col_priority, values="count").fillna(0).reset_index()
-            pivot_b2b.columns = ["warehouse"] + list(pivot_b2b.columns[1:])
-            data["b2b_orders"] = pivot_b2b.to_dict(orient="records")
-            
-            # 4. Installation Orders
-            df_install = pd.read_excel(excel_data, sheet_name="5. DS đơn Lắp đặt")
-            df_install_hanoi = df_install[df_install["Kho hiện tại"].astype(str).str.contains("Hà Nội|HNO", na=False)]
-            
-            for _, row in df_install_hanoi.iterrows():
-                item = {
-                    "order_code": str(row["Mã đơn hàng"]),
-                    "warehouse": str(row["Kho hiện tại"]),
-                    "status": str(row["Trạng thái đơn hàng"]),
-                    "install_type": str(row["Type lắp đặt"])
-                }
-                if row["Type lắp đặt"] == "Đã lắp đặt":
-                    data["installation_orders"]["success"].append(item)
-                elif row["Buyer đồng ý lắp đặt?"] == "Đồng ý" and row["Type lắp đặt"] != "Đã lắp đặt":
-                    if row["Type lắp đặt"] == "Không cần lắp đặt":
-                        data["installation_orders"]["discrepancy"].append(item)
-                    else:
-                        data["installation_orders"]["pending"].append(item)
+                col_wh = header.index("warehouse_name")
+                col_sld = header.index("sld")
+                col_sld_gtc = header.index("sld_gtc")
+                
+                hanoi_keywords = ["Hà Nội", "HNO", "Long Biên", "Bắc Từ Liêm", "Thanh Oai", "Hoài Đức", "Đức Long", "Thanh Trì", "Đông Anh"]
+                
+                groups = {}
+                for row in rows:
+                    if not row or len(row) <= max(col_wh, col_sld, col_sld_gtc):
+                        continue
+                    wh_val = str(row[col_wh]) if row[col_wh] is not None else ""
+                    if "Kho Giao Hàng Nặng" in wh_val and any(kw in wh_val for kw in hanoi_keywords):
+                        sld_val = float(row[col_sld]) if row[col_sld] is not None else 0.0
+                        sld_gtc_val = float(row[col_sld_gtc]) if row[col_sld_gtc] is not None else 0.0
                         
+                        if wh_val not in groups:
+                            groups[wh_val] = {"total_assigned": 0.0, "total_success": 0.0}
+                        groups[wh_val]["total_assigned"] += sld_val
+                        groups[wh_val]["total_success"] += sld_gtc_val
+                
+                gtc_ratio_list = []
+                for wh_name, vals in groups.items():
+                    total_assigned = vals["total_assigned"]
+                    total_success = vals["total_success"]
+                    gtc_ratio = (total_success / total_assigned * 100) if total_assigned > 0 else 0.0
+                    gtc_ratio_list.append({
+                        "warehouse_name": wh_name,
+                        "total_assigned": total_assigned,
+                        "total_success": total_success,
+                        "gtc_ratio": gtc_ratio
+                    })
+                
+                gtc_ratio_list.sort(key=lambda x: x["gtc_ratio"], reverse=True)
+                data["gtc_ratio"] = gtc_ratio_list
+            
+            # 2. Xử lý Đơn hoãn giao >3D (Sheet: 4. Đơn >3D)
+            if "4. Đơn >3D" in wb.sheetnames:
+                sheet = wb["4. Đơn >3D"]
+                rows = sheet.iter_rows(values_only=True)
+                header = next(rows)
+                
+                delayed_keywords = ["hà nội", "hno", "long biên", "bắc từ liêm", "thanh oai", "hoài đức", "đức long", "thanh trì", "đông anh"]
+                
+                delayed_list = []
+                for row in rows:
+                    if not row or len(row) < 5:
+                        continue
+                    wh_val = row[1]
+                    if wh_val is not None:
+                        wh_str = str(wh_val).lower()
+                        if "kho giao hàng nặng" in wh_str and any(kw in wh_str for kw in delayed_keywords):
+                            total_3d = float(row[2]) if row[2] is not None else 0.0
+                            over_7d = float(row[3]) if row[3] is not None else 0.0
+                            four_to_seven = float(row[4]) if row[4] is not None else 0.0
+                            
+                            if over_7d >= 10 or total_3d >= 100:
+                                status = "Cảnh báo"
+                            elif over_7d > 0 or total_3d >= 20:
+                                status = "Cần lưu ý"
+                            else:
+                                status = "Bình thường"
+                                
+                            delayed_list.append({
+                                "warehouse": str(wh_val),
+                                "total_3d": total_3d,
+                                "over_7d": over_7d,
+                                "4_to_7d": four_to_seven,
+                                "status": status
+                            })
+                
+                delayed_list.sort(key=lambda x: x["total_3d"], reverse=True)
+                data["delayed_orders"] = delayed_list
+            
+            # 3. Xử lý Đơn hàng B2B Ưu tiên (Sheet: 6.2 B2B | Đơn ƯU TIÊN GIAO)
+            if "6.2 B2B | Đơn ƯU TIÊN GIAO" in wb.sheetnames:
+                sheet = wb["6.2 B2B | Đơn ƯU TIÊN GIAO"]
+                rows = sheet.iter_rows(values_only=True)
+                header = next(rows)
+                
+                b2b_groups = {}
+                priorities_set = set()
+                hanoi_keywords_b2b = ["hà nội", "hno", "long biên", "bắc từ liêm", "thanh oai", "hoài đức", "đức long", "thanh trì", "đông anh"]
+                
+                for row in rows:
+                    if not row or len(row) < 3:
+                        continue
+                    
+                    has_hanoi = False
+                    for val in row:
+                        if val is not None:
+                            val_str = str(val).lower()
+                            if any(kw in val_str for kw in hanoi_keywords_b2b):
+                                has_hanoi = True
+                                break
+                                
+                    if has_hanoi:
+                        priority_val = str(row[0]) if row[0] is not None else "Không xác định"
+                        wh_val = str(row[2]) if row[2] is not None else "Không xác định"
+                        
+                        priorities_set.add(priority_val)
+                        if wh_val not in b2b_groups:
+                            b2b_groups[wh_val] = {}
+                        if priority_val not in b2b_groups[wh_val]:
+                            b2b_groups[wh_val][priority_val] = 0
+                        b2b_groups[wh_val][priority_val] += 1
+                
+                b2b_orders_list = []
+                for wh_name, prio_counts in b2b_groups.items():
+                    record = {"warehouse": wh_name}
+                    for prio in priorities_set:
+                        record[prio] = prio_counts.get(prio, 0)
+                    b2b_orders_list.append(record)
+                
+                data["b2b_orders"] = b2b_orders_list
+            
+            # 4. Xử lý Đơn lắp đặt (Sheet: 5. DS đơn Lắp đặt)
+            if "5. DS đơn Lắp đặt" in wb.sheetnames:
+                sheet = wb["5. DS đơn Lắp đặt"]
+                rows = sheet.iter_rows(values_only=True)
+                header = next(rows)
+                
+                col_wh_inst = header.index("Kho hiện tại")
+                col_code_inst = header.index("Mã đơn hàng")
+                col_status_inst = header.index("Trạng thái đơn hàng")
+                col_type_inst = header.index("Type lắp đặt")
+                col_buyer_inst = header.index("Buyer đồng ý lắp đặt?")
+                
+                for row in rows:
+                    if not row or len(row) <= max(col_wh_inst, col_code_inst, col_status_inst, col_type_inst, col_buyer_inst):
+                        continue
+                    wh_val = str(row[col_wh_inst]) if row[col_wh_inst] is not None else ""
+                    if "Hà Nội" in wh_val or "HNO" in wh_val:
+                        type_inst = str(row[col_type_inst]) if row[col_type_inst] is not None else ""
+                        buyer_inst = str(row[col_buyer_inst]) if row[col_buyer_inst] is not None else ""
+                        
+                        item = {
+                            "order_code": str(row[col_code_inst]) if row[col_code_inst] is not None else "",
+                            "warehouse": wh_val,
+                            "status": str(row[col_status_inst]) if row[col_status_inst] is not None else "",
+                            "install_type": type_inst
+                        }
+                        
+                        if type_inst == "Đã lắp đặt":
+                            data["installation_orders"]["success"].append(item)
+                        elif buyer_inst == "Đồng ý" and type_inst != "Đã lắp đặt":
+                            if type_inst == "Không cần lắp đặt":
+                                data["installation_orders"]["discrepancy"].append(item)
+                            else:
+                                data["installation_orders"]["pending"].append(item)
+            
+            # Đóng workbook để giải phóng bộ nhớ
+            wb.close()
+            
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
             self.send_header('Access-Control-Allow-Origin', '*')
