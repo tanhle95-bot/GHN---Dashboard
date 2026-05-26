@@ -2,20 +2,92 @@ from http.server import BaseHTTPRequestHandler
 import json
 import urllib.request
 import io
-import openpyxl
+import zipfile
+import xml.etree.ElementTree as ET
 
 URL = "https://docs.google.com/spreadsheets/d/1Kjqwt6MIghCzfCSifVrpIpVHbC0o77lxMVVFlCZ26xY/export?format=xlsx"
+
+def fast_parse_sheet(z, sheet_file, strings):
+    sheet_xml = z.read(sheet_file)
+    root_sheet = ET.fromstring(sheet_xml)
+    
+    rows = []
+    ns_sheet = {"ns": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+    for r in root_sheet.findall(".//ns:row", ns_sheet):
+        row_cells = {}
+        for c in r.findall("ns:c", ns_sheet):
+            ref = c.get("r")
+            col_letter = "".join(filter(str.isalpha, ref))
+            col_idx = 0
+            for char in col_letter:
+                col_idx = col_idx * 26 + (ord(char) - ord("A") + 1)
+            col_idx -= 1
+            
+            t = c.get("t")
+            v_el = c.find("ns:v", ns_sheet)
+            val = None
+            if v_el is not None:
+                v_text = v_el.text
+                if t == "s":
+                    val = strings[int(v_text)]
+                elif t == "b":
+                    val = v_text == "1"
+                else:
+                    try:
+                        val = float(v_text) if "." in v_text or "e" in v_text.lower() else int(v_text)
+                    except ValueError:
+                        val = v_text
+            row_cells[col_idx] = val
+            
+        if row_cells:
+            max_idx = max(row_cells.keys())
+            row_list = [row_cells.get(i, None) for i in range(max_idx + 1)]
+            rows.append(row_list)
+    return rows
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
         try:
-            # Tải file Excel về bộ nhớ
+            # 1. Tải file Excel XLSX 11MB về bộ nhớ
             req = urllib.request.Request(URL, headers={"User-Agent": "Mozilla/5.0"})
             response = urllib.request.urlopen(req)
-            excel_data = io.BytesIO(response.read())
+            excel_bytes = io.BytesIO(response.read())
             
-            # Khởi tạo workbook dạng đọc tối ưu (read_only và data_only)
-            wb = openpyxl.load_workbook(excel_data, read_only=True, data_only=True)
+            # 2. Giải nén nhanh zip XLSX
+            z = zipfile.ZipFile(excel_bytes)
+            
+            # 3. Tải danh sách chuỗi dùng chung (sharedStrings.xml)
+            strings = []
+            try:
+                sst_xml = z.read("xl/sharedStrings.xml")
+                root_sst = ET.fromstring(sst_xml)
+                ns = {"ns": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+                for t in root_sst.findall(".//ns:t", ns):
+                    strings.append(t.text)
+            except KeyError:
+                pass
+                
+            # 4. Ánh xạ các sheet name sang file XML tương ứng
+            wb_xml = z.read("xl/workbook.xml")
+            root_wb = ET.fromstring(wb_xml)
+            
+            wb_rels_xml = z.read("xl/_rels/workbook.xml.rels")
+            root_rels = ET.fromstring(wb_rels_xml)
+            ns_rels = {"ns": "http://schemas.openxmlformats.org/package/2006/relationships"}
+            rel_to_target = {}
+            for rel in root_rels.findall(".//ns:Relationship", ns_rels):
+                rel_to_target[rel.get("Id")] = rel.get("Target")
+
+            namespaces = {
+                "ns": "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
+                "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+            }
+            sheet_targets = {}
+            for sheet in root_wb.findall(".//ns:sheet", namespaces):
+                name = sheet.get("name")
+                r_id = sheet.get("{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id")
+                target = rel_to_target[r_id]
+                sheet_targets[name] = "xl/" + target
             
             data = {
                 "gtc_ratio": [],
@@ -28,12 +100,10 @@ class handler(BaseHTTPRequestHandler):
                 }
             }
             
-            # 1. Xử lý GTC Ratio (Sheet: raw_hieusuat)
-            if "raw_hieusuat" in wb.sheetnames:
-                sheet = wb["raw_hieusuat"]
-                rows = sheet.iter_rows(values_only=True)
-                header = next(rows)
-                
+            # 1. GTC Ratio (Sheet: raw_hieusuat)
+            if "raw_hieusuat" in sheet_targets:
+                rows_hieusuat = fast_parse_sheet(z, sheet_targets["raw_hieusuat"], strings)
+                header = rows_hieusuat[0]
                 col_wh = header.index("warehouse_name")
                 col_sld = header.index("sld")
                 col_sld_gtc = header.index("sld_gtc")
@@ -41,7 +111,7 @@ class handler(BaseHTTPRequestHandler):
                 hanoi_keywords = ["Hà Nội", "HNO", "Long Biên", "Bắc Từ Liêm", "Thanh Oai", "Hoài Đức", "Đức Long", "Thanh Trì", "Đông Anh"]
                 
                 groups = {}
-                for row in rows:
+                for row in rows_hieusuat[1:]:
                     if not row or len(row) <= max(col_wh, col_sld, col_sld_gtc):
                         continue
                     wh_val = str(row[col_wh]) if row[col_wh] is not None else ""
@@ -69,16 +139,14 @@ class handler(BaseHTTPRequestHandler):
                 gtc_ratio_list.sort(key=lambda x: x["gtc_ratio"], reverse=True)
                 data["gtc_ratio"] = gtc_ratio_list
             
-            # 2. Xử lý Đơn hoãn giao >3D (Sheet: 4. Đơn >3D)
-            if "4. Đơn >3D" in wb.sheetnames:
-                sheet = wb["4. Đơn >3D"]
-                rows = sheet.iter_rows(values_only=True)
-                header = next(rows)
+            # 2. Đơn hoãn giao >3D (Sheet: 4. Đơn >3D)
+            if "4. Đơn >3D" in sheet_targets:
+                rows_delayed = fast_parse_sheet(z, sheet_targets["4. Đơn >3D"], strings)
                 
                 delayed_keywords = ["hà nội", "hno", "long biên", "bắc từ liêm", "thanh oai", "hoài đức", "đức long", "thanh trì", "đông anh"]
                 
                 delayed_list = []
-                for row in rows:
+                for row in rows_delayed[3:]: # Bỏ qua 2 hàng Note và hàng Header
                     if not row or len(row) < 5:
                         continue
                     wh_val = row[1]
@@ -107,17 +175,15 @@ class handler(BaseHTTPRequestHandler):
                 delayed_list.sort(key=lambda x: x["total_3d"], reverse=True)
                 data["delayed_orders"] = delayed_list
             
-            # 3. Xử lý Đơn hàng B2B Ưu tiên (Sheet: 6.2 B2B | Đơn ƯU TIÊN GIAO)
-            if "6.2 B2B | Đơn ƯU TIÊN GIAO" in wb.sheetnames:
-                sheet = wb["6.2 B2B | Đơn ƯU TIÊN GIAO"]
-                rows = sheet.iter_rows(values_only=True)
-                header = next(rows)
+            # 3. Đơn B2B Ưu tiên (Sheet: 6.2 B2B | Đơn ƯU TIÊN GIAO)
+            if "6.2 B2B | Đơn ƯU TIÊN GIAO" in sheet_targets:
+                rows_b2b = fast_parse_sheet(z, sheet_targets["6.2 B2B | Đơn ƯU TIÊN GIAO"], strings)
                 
                 b2b_groups = {}
                 priorities_set = set()
                 hanoi_keywords_b2b = ["hà nội", "hno", "long biên", "bắc từ liêm", "thanh oai", "hoài đức", "đức long", "thanh trì", "đông anh"]
                 
-                for row in rows:
+                for row in rows_b2b[3:]: # Bỏ qua 2 hàng Note và hàng Header
                     if not row or len(row) < 3:
                         continue
                     
@@ -149,11 +215,10 @@ class handler(BaseHTTPRequestHandler):
                 
                 data["b2b_orders"] = b2b_orders_list
             
-            # 4. Xử lý Đơn lắp đặt (Sheet: 5. DS đơn Lắp đặt)
-            if "5. DS đơn Lắp đặt" in wb.sheetnames:
-                sheet = wb["5. DS đơn Lắp đặt"]
-                rows = sheet.iter_rows(values_only=True)
-                header = next(rows)
+            # 4. Đơn lắp đặt (Sheet: 5. DS đơn Lắp đặt)
+            if "5. DS đơn Lắp đặt" in sheet_targets:
+                rows_inst = fast_parse_sheet(z, sheet_targets["5. DS đơn Lắp đặt"], strings)
+                header = rows_inst[0]
                 
                 col_wh_inst = header.index("Kho hiện tại")
                 col_code_inst = header.index("Mã đơn hàng")
@@ -161,7 +226,7 @@ class handler(BaseHTTPRequestHandler):
                 col_type_inst = header.index("Type lắp đặt")
                 col_buyer_inst = header.index("Buyer đồng ý lắp đặt?")
                 
-                for row in rows:
+                for row in rows_inst[1:]:
                     if not row or len(row) <= max(col_wh_inst, col_code_inst, col_status_inst, col_type_inst, col_buyer_inst):
                         continue
                     wh_val = str(row[col_wh_inst]) if row[col_wh_inst] is not None else ""
@@ -183,9 +248,6 @@ class handler(BaseHTTPRequestHandler):
                                 data["installation_orders"]["discrepancy"].append(item)
                             else:
                                 data["installation_orders"]["pending"].append(item)
-            
-            # Đóng workbook để giải phóng bộ nhớ
-            wb.close()
             
             self.send_response(200)
             self.send_header('Content-type', 'application/json')

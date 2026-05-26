@@ -1,4 +1,9 @@
 {
+  "functions": {
+    "api/data.py": {
+      "maxDuration": 60
+    }
+  },
   "rewrites": [
     {
       "source": "/api/data",
