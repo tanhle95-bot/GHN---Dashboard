@@ -1,8 +1,8 @@
 {
-  "routes": [
+  "rewrites": [
     {
-      "src": "/api/data",
-      "dest": "/api/data.py"
+      "source": "/api/data",
+      "destination": "/api/data.py"
     }
   ]
 }
