@@ -12,6 +12,22 @@ async function fetchData() {
         // Update Time
         document.getElementById('update-time').innerText = new Date().toLocaleString('vi-VN');
         
+        // Update KPI Cards
+        if (document.getElementById('overall-gtc-ratio')) {
+            document.getElementById('overall-gtc-ratio').innerText = data.overall_gtc.toFixed(2) + '%';
+        }
+        
+        if (document.getElementById('overall-gtc-total')) {
+            let totalAssigned = 0;
+            let totalSuccess = 0;
+            data.gtc_ratio.forEach(d => {
+                totalAssigned += d.total_assigned;
+                totalSuccess += d.total_success;
+            });
+            document.getElementById('overall-gtc-total').innerText = totalAssigned.toLocaleString('vi-VN');
+            document.getElementById('overall-gtc-success').innerText = totalSuccess.toLocaleString('vi-VN');
+        }
+        
         renderGtcChart(data.gtc_ratio);
         renderDelayedTable(data.delayed_orders);
         renderB2bTable(data.b2b_orders);
@@ -28,7 +44,12 @@ async function fetchData() {
 function renderGtcChart(data) {
     const ctx = document.getElementById('gtcChart').getContext('2d');
     
-    const labels = data.map(d => d.warehouse_name.replace('Kho Giao Hàng Nặng - ', '').replace(' - Hà Nội', ''));
+    const labels = data.map(d => d.warehouse_name
+        .replace('Kho Giao Hàng Nặng - ', '')
+        .replace('Kho Chuyển Tiếp ', 'CT ')
+        .replace(' - Hà Nội', '')
+        .replace('-Hà Nội', '')
+    );
     const values = data.map(d => d.gtc_ratio.toFixed(2));
     
     if (gtcChartInstance) {

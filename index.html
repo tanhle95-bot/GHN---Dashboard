@@ -24,6 +24,40 @@
             </div>
         </header>
 
+        <!-- KPI Overview -->
+        <div class="kpi-overview" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-bottom: 1.5rem;">
+            <div class="card" style="display: flex; align-items: center; justify-content: space-between; padding: 1.25rem 1.5rem; border-left: 4px solid var(--accent-blue);">
+                <div>
+                    <h3 style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); margin-bottom: 0.25rem;">Tỷ lệ GTC Toàn Vùng</h3>
+                    <div class="value" id="overall-gtc-ratio" style="font-size: 1.75rem; font-weight: 700; color: var(--accent-blue);">Đang tải...</div>
+                </div>
+                <div style="font-size: 0.75rem; text-align: right; color: var(--text-secondary);">
+                    <div>Mục tiêu: <strong style="color: var(--success);">75.0%</strong></div>
+                    <div style="margin-top: 0.25rem;">Nguồn: <span style="font-family: monospace;">Sheet 1. Backlog</span></div>
+                </div>
+            </div>
+            <div class="card" style="display: flex; align-items: center; justify-content: space-between; padding: 1.25rem 1.5rem; border-left: 4px solid var(--success);">
+                <div>
+                    <h3 style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); margin-bottom: 0.25rem;">Tổng đơn gán</h3>
+                    <div class="value" id="overall-gtc-total" style="font-size: 1.75rem; font-weight: 700; color: var(--success);">Đang tải...</div>
+                </div>
+                <div style="font-size: 0.75rem; text-align: right; color: var(--text-secondary);">
+                    <div>Thành công: <strong id="overall-gtc-success" style="color: var(--success);">Đang tải...</strong></div>
+                    <div style="margin-top: 0.25rem;">Nguồn: <span style="font-family: monospace;">Sheet raw_hieusuat</span></div>
+                </div>
+            </div>
+            <div class="card" style="display: flex; align-items: center; justify-content: space-between; padding: 1.25rem 1.5rem; border-left: 4px solid var(--warning);">
+                <div>
+                    <h3 style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); margin-bottom: 0.25rem;">Kho hàng vận hành</h3>
+                    <div class="value" style="font-size: 1.75rem; font-weight: 700; color: var(--warning);">8 kho</div>
+                </div>
+                <div style="font-size: 0.75rem; text-align: right; color: var(--text-secondary);">
+                    <div>Bao gồm: <strong>CT Đông Anh</strong></div>
+                    <div style="margin-top: 0.25rem;">Trạng thái: <span style="color: var(--success);">Hoạt động</span></div>
+                </div>
+            </div>
+        </div>
+
         <div class="grid-container">
             <!-- Tỷ lệ GTC -->
             <section class="card span-2">
