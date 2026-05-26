@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard GHN Hà Nội</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="dashboard-container">
+        <header>
+            <div class="header-left">
+                <h1>Giao Hàng Nặng <span>| Hà Nội Hub</span></h1>
+                <p class="subtitle">Báo cáo hiệu suất vận hành theo thời gian thực</p>
+            </div>
+            <div class="header-right">
+                <div class="last-updated">Cập nhật lần cuối: <span id="update-time">Đang tải...</span></div>
+                <button id="refresh-btn" class="btn primary-btn" onclick="fetchData()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.92-10.27l5.58-3.3"/></svg>
+                    Làm mới dữ liệu
+                </button>
+            </div>
+        </header>
+
+        <div class="grid-container">
+            <!-- Tỷ lệ GTC -->
+            <section class="card span-2">
+                <h2>Tỷ lệ Giao Thành Công / Đơn Gán</h2>
+                <div class="chart-container">
+                    <canvas id="gtcChart"></canvas>
+                </div>
+            </section>
+
+            <!-- Đơn tồn > 3 Ngày -->
+            <section class="card">
+                <h2>Đơn tồn đọng > 3 Ngày</h2>
+                <div class="table-container">
+                    <table id="delayed-table">
+                        <thead>
+                            <tr>
+                                <th>Kho</th>
+                                <th>>3 Ngày</th>
+                                <th>>7 Ngày</th>
+                                <th>Trạng thái</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Dữ liệu JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Đơn ưu tiên B2B -->
+            <section class="card span-2">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+                    <h2 style="margin-bottom: 0;">Đơn ưu tiên giao B2B</h2>
+                    <a href="b2b_dashboard.html" class="btn" style="background-color: rgba(59, 130, 246, 0.2); color: var(--accent-blue); text-decoration: none; font-size: 0.75rem;">Xem chi tiết B2B</a>
+                </div>
+                <div class="table-container">
+                    <table id="b2b-table">
+                        <thead>
+                            <tr>
+                                <th>Kho</th>
+                                <th>Hôm nay</th>
+                                <th>Ngày mai</th>
+                                <th>Ngày mốt</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Dữ liệu JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Đơn Lắp Đặt -->
+            <section class="card span-3">
+                <h2>Chi tiết Đơn Lắp đặt</h2>
+                <div class="stats-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 2rem;">
+                    <div class="stat-box" style="border-top: 4px solid var(--accent-blue);">
+                        <h3>Tổng đơn</h3>
+                        <div class="value" id="install-total">0</div>
+                    </div>
+                    <div class="stat-box success" style="border-top: 4px solid var(--success);">
+                        <h3>Đã hoàn tất</h3>
+                        <div class="value" id="install-success">0</div>
+                    </div>
+                    <div class="stat-box warning" style="border-top: 4px solid var(--warning);">
+                        <h3>Cần xử lý gấp</h3>
+                        <div class="value" id="install-pending">0</div>
+                    </div>
+                    <div class="stat-box error" style="border-top: 4px solid var(--error);">
+                        <h3>Sai lệch dữ liệu</h3>
+                        <div class="value" id="install-discrepancy">0</div>
+                    </div>
+                </div>
+                <div class="table-container" style="max-height: none; overflow-y: visible;">
+                    <table id="install-full-table">
+                        <thead>
+                            <tr>
+                                <th>Order Code</th>
+                                <th>Kho xử lý</th>
+                                <th>Loại SP & Tỉnh Giao</th>
+                                <th>Trạng thái (Status)</th>
+                                <th>Chi tiết lắp đặt</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Dữ liệu JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

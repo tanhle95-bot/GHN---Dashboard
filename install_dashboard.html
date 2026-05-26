@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Chi Tiết Lắp Đặt</title>
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --border-color: rgba(255, 255, 255, 0.1);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent-blue: #3b82f6;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+            background-image: 
+                radial-gradient(circle at 85% 15%, rgba(16, 185, 129, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 15% 85%, rgba(239, 68, 68, 0.15) 0%, transparent 50%);
+        }
+
+        .dashboard-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 1.5rem;
+        }
+
+        h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(to right, var(--text-primary), var(--text-secondary));
+            -webkit-background-clip: text;
+            color: transparent;
+        }
+
+        h1 span { color: var(--accent-blue); font-weight: 400; }
+        .subtitle { color: var(--text-secondary); margin-top: 0.5rem; }
+
+        .kpi-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .kpi-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            transition: transform 0.3s ease;
+        }
+
+        .kpi-card:hover { transform: translateY(-4px); }
+        .kpi-title { color: var(--text-secondary); font-size: 0.875rem; font-weight: 500; text-transform: uppercase; }
+        .kpi-value { font-size: 2.5rem; font-weight: 700; }
+
+        .charts-row {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .card h2 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .card h2::before {
+            content: ''; display: block; width: 4px; height: 16px; background-color: var(--accent-blue); border-radius: 2px;
+        }
+
+        .chart-container { position: relative; height: 300px; width: 100%; }
+
+        .table-container { overflow-x: auto; max-height: 500px; overflow-y: auto; }
+        table { width: 100%; border-collapse: separate; border-spacing: 0; }
+        th {
+            position: sticky; top: 0; background: rgba(30, 41, 59, 0.95);
+            color: var(--text-secondary); font-weight: 500; font-size: 0.875rem;
+            text-transform: uppercase; padding: 1rem; text-align: left;
+            border-bottom: 1px solid var(--border-color); z-index: 10;
+        }
+        td { padding: 1rem; font-size: 0.9375rem; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+        tbody tr:hover { background-color: rgba(255, 255, 255, 0.03); }
+
+        .badge { padding: 0.3rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
+        .badge-success { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; }
+        .badge-warning { background: rgba(245, 158, 11, 0.2); color: #fcd34d; }
+        .badge-error { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
+
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="./data.js"></script>
+</head>
+<body>
+    <div class="dashboard-container">
+        <header>
+            <div>
+                <h1>Chi tiết <span>Đơn Lắp Đặt</span></h1>
+                <p class="subtitle">Theo dõi trạng thái lắp đặt tại các kho GHN Hà Nội</p>
+            </div>
+            <div>
+                <a href="dashboard.html" style="color: var(--accent-blue); text-decoration: none; font-weight: 500;">&larr; Về Dashboard Chung</a>
+            </div>
+        </header>
+
+        <div class="kpi-row">
+            <div class="kpi-card" style="border-top: 4px solid var(--accent-blue);">
+                <div class="kpi-title">Tổng đơn</div>
+                <div class="kpi-value" id="kpi-total">0</div>
+            </div>
+            <div class="kpi-card" style="border-top: 4px solid var(--success);">
+                <div class="kpi-title">Đã hoàn tất</div>
+                <div class="kpi-value" id="kpi-success">0</div>
+            </div>
+            <div class="kpi-card" style="border-top: 4px solid var(--warning);">
+                <div class="kpi-title">Cần xử lý gấp</div>
+                <div class="kpi-value" id="kpi-pending">0</div>
+            </div>
+            <div class="kpi-card" style="border-top: 4px solid var(--error);">
+                <div class="kpi-title">Sai lệch dữ liệu</div>
+                <div class="kpi-value" id="kpi-error">0</div>
+            </div>
+        </div>
+
+        <div class="charts-row">
+            <div class="card">
+                <h2>Trạng thái chung</h2>
+                <div class="chart-container">
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+            <div class="card">
+                <h2>Danh sách chi tiết</h2>
+                <div class="table-container">
+                    <table id="installTable">
+                        <thead>
+                            <tr>
+                                <th>Order Code</th>
+                                <th>Kho xử lý</th>
+                                <th>Trạng thái (Status)</th>
+                                <th>Chi tiết (Install Type)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Rows here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            if (typeof dashboardData === 'undefined' || !dashboardData.installation_orders) {
+                console.error("Data not found!");
+                return;
+            }
+
+            const data = dashboardData.installation_orders;
+            const successCount = data.success.length;
+            const pendingCount = data.pending.length;
+            const errorCount = data.discrepancy.length;
+            const total = successCount + pendingCount + errorCount;
+
+            document.getElementById('kpi-total').innerText = total;
+            document.getElementById('kpi-success').innerText = successCount;
+            document.getElementById('kpi-pending').innerText = pendingCount;
+            document.getElementById('kpi-error').innerText = errorCount;
+
+            const ctx = document.getElementById('statusChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Đã hoàn tất', 'Cần xử lý', 'Sai lệch'],
+                    datasets: [{
+                        data: [successCount, pendingCount, errorCount],
+                        backgroundColor: [
+                            'rgba(16, 185, 129, 0.8)',
+                            'rgba(245, 158, 11, 0.8)',
+                            'rgba(239, 68, 68, 0.8)'
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8' } } },
+                    cutout: '70%'
+                }
+            });
+
+            const tbody = document.querySelector('#installTable tbody');
+            const allOrders = [
+                ...data.success.map(o => ({...o, type: 'success'})),
+                ...data.pending.map(o => ({...o, type: 'pending'})),
+                ...data.discrepancy.map(o => ({...o, type: 'error'}))
+            ];
+
+            allOrders.forEach(order => {
+                const tr = document.createElement('tr');
+                const badgeClass = order.type === 'success' ? 'badge-success' 
+                                 : order.type === 'pending' ? 'badge-warning' 
+                                 : 'badge-error';
+                
+                tr.innerHTML = `
+                    <td style="font-family: monospace; font-weight: 600;">${order.order_code}</td>
+                    <td>${order.warehouse.replace('Kho Giao Hàng Nặng - ', '').replace(' - Hà Nội', '')}</td>
+                    <td><span class="badge ${badgeClass}">${order.status}</span></td>
+                    <td style="color: var(--text-secondary);">${order.install_type}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        });
+    </script>
+</body>
+</html>
