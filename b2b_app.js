@@ -11,7 +11,7 @@ function escapeHTML(str) {
 
 document.addEventListener("DOMContentLoaded", function() {
     // Fetch B2B data from authenticated API instead of static file
-    fetch('/api/b2b-data')
+    fetch('/api/b2b-data', { credentials: 'include' })
         .then(function(r) {
             if (r.status === 401) {
                 window.location.href = '/login.html';

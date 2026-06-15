@@ -142,7 +142,7 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             // Check if already authenticated
-            fetch('/api/check-auth')
+            fetch('/api/check-auth', { credentials: 'include' })
                 .then(function(r) { return r.json(); })
                 .then(function(data) {
                     if (data.authenticated) {
@@ -164,6 +164,7 @@
                 fetch('/api/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
                     body: JSON.stringify({
                         username: document.getElementById('username').value,
                         password: document.getElementById('password').value
