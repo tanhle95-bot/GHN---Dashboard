@@ -58,7 +58,7 @@ class handler(BaseHTTPRequestHandler):
 
         # Verify credentials from environment
         # Format: USERS=admin:salt:hash,user2:salt2:hash2
-        default_hash = hash_password('GHN@2024secure', 'ghn2024salt')
+        default_hash = hash_password('GiaoHangNhanhB2B', 'ghn2024salt')
         users_str = os.environ.get('USERS', f'admin:ghn2024salt:{default_hash}')
         users = {}
         for entry in users_str.split(','):
