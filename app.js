@@ -16,7 +16,7 @@ async function fetchData() {
     refreshBtn.style.opacity = '0.5';
     
     try {
-        const response = await fetch('/api/data', { credentials: 'include' });
+        const response = await authFetch('/api/data');
         if (response.status === 401) {
             window.location.href = '/login.html';
             return;

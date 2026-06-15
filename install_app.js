@@ -11,7 +11,7 @@ function escapeHTML(str) {
 
 document.addEventListener("DOMContentLoaded", function() {
     // Fetch data from authenticated API instead of static file
-    fetch('/api/data', { credentials: 'include' })
+    authFetch('/api/data')
         .then(function(r) {
             if (r.status === 401) {
                 window.location.href = '/login.html';

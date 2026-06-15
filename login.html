@@ -142,14 +142,14 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             // Check if already authenticated
-            fetch('/api/check-auth', { credentials: 'include' })
-                .then(function(r) { return r.json(); })
-                .then(function(data) {
-                    if (data.authenticated) {
-                        window.location.href = '/index.html';
-                    }
+            var existingToken = localStorage.getItem('session_token');
+            if (existingToken) {
+                fetch('/api/check-auth', {
+                    headers: { 'Authorization': 'Bearer ' + existingToken }
                 })
+                .then(function(r) { if (r.ok) window.location.href = '/index.html'; })
                 .catch(function() {});
+            }
 
             var form = document.getElementById('login-form');
             var errorDiv = document.getElementById('error-msg');
@@ -164,7 +164,6 @@
                 fetch('/api/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
                     body: JSON.stringify({
                         username: document.getElementById('username').value,
                         password: document.getElementById('password').value
@@ -176,11 +175,8 @@
                     });
                 })
                 .then(function(result) {
-                    if (result.ok && result.data.ok) {
-                        // Set cookie from response token as fallback
-                        if (result.data.token) {
-                            document.cookie = 'session_token=' + result.data.token + '; path=/; max-age=28800; secure; samesite=strict';
-                        }
+                    if (result.ok && result.data.ok && result.data.token) {
+                        localStorage.setItem('session_token', result.data.token);
                         window.location.href = '/index.html';
                     } else {
                         errorDiv.textContent = result.data.error || 'Đăng nhập thất bại';

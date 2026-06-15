@@ -73,7 +73,16 @@ def get_logout_cookie():
 
 
 def check_auth(handler):
-    """Check if request has valid session cookie. Returns username or None."""
+    """Check if request has valid session. Accepts Cookie or Authorization Bearer."""
+    # Try Authorization header first (localStorage-based auth)
+    auth_header = handler.headers.get('Authorization', '')
+    if auth_header.startswith('Bearer '):
+        token = auth_header[7:]
+        result = verify_token(token)
+        if result:
+            return result
+
+    # Fallback to cookie
     cookie_header = handler.headers.get('Cookie', '')
     cookies = {}
     for item in cookie_header.split(';'):
