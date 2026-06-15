@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
     <title>Dashboard Chi Tiết Lắp Đặt</title>
     <style>
         :root {
@@ -130,8 +131,8 @@
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
     </style>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="auth.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="./data.js"></script>
 </head>
 <body>
     <div class="dashboard-container">
@@ -192,69 +193,6 @@
         </div>
     </div>
 
-    <script>
-        document.addEventListener("DOMContentLoaded", () => {
-            if (typeof dashboardData === 'undefined' || !dashboardData.installation_orders) {
-                console.error("Data not found!");
-                return;
-            }
-
-            const data = dashboardData.installation_orders;
-            const successCount = data.success.length;
-            const pendingCount = data.pending.length;
-            const errorCount = data.discrepancy.length;
-            const total = successCount + pendingCount + errorCount;
-
-            document.getElementById('kpi-total').innerText = total;
-            document.getElementById('kpi-success').innerText = successCount;
-            document.getElementById('kpi-pending').innerText = pendingCount;
-            document.getElementById('kpi-error').innerText = errorCount;
-
-            const ctx = document.getElementById('statusChart').getContext('2d');
-            new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Đã hoàn tất', 'Cần xử lý', 'Sai lệch'],
-                    datasets: [{
-                        data: [successCount, pendingCount, errorCount],
-                        backgroundColor: [
-                            'rgba(16, 185, 129, 0.8)',
-                            'rgba(245, 158, 11, 0.8)',
-                            'rgba(239, 68, 68, 0.8)'
-                        ],
-                        borderWidth: 0
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8' } } },
-                    cutout: '70%'
-                }
-            });
-
-            const tbody = document.querySelector('#installTable tbody');
-            const allOrders = [
-                ...data.success.map(o => ({...o, type: 'success'})),
-                ...data.pending.map(o => ({...o, type: 'pending'})),
-                ...data.discrepancy.map(o => ({...o, type: 'error'}))
-            ];
-
-            allOrders.forEach(order => {
-                const tr = document.createElement('tr');
-                const badgeClass = order.type === 'success' ? 'badge-success' 
-                                 : order.type === 'pending' ? 'badge-warning' 
-                                 : 'badge-error';
-                
-                tr.innerHTML = `
-                    <td style="font-family: monospace; font-weight: 600;">${order.order_code}</td>
-                    <td>${order.warehouse.replace('Kho Giao Hàng Nặng - ', '').replace(' - Hà Nội', '')}</td>
-                    <td><span class="badge ${badgeClass}">${order.status}</span></td>
-                    <td style="color: var(--text-secondary);">${order.install_type}</td>
-                `;
-                tbody.appendChild(tr);
-            });
-        });
-    </script>
+    <script src="install_app.js"></script>
 </body>
 </html>

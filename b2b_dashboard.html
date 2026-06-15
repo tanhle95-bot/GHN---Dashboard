@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
     <title>B2B Detailed Dashboard</title>
     <style>
         :root {
@@ -212,8 +213,8 @@
         }
     </style>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="auth.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="./b2b_data.js"></script>
 </head>
 <body>
     <div class="dashboard-container">
@@ -283,98 +284,6 @@
         </div>
     </div>
 
-    <script>
-        document.addEventListener("DOMContentLoaded", () => {
-            if (typeof b2bData === 'undefined') {
-                console.error("Data not loaded!");
-                return;
-            }
-
-            // 1. Populate KPIs
-            document.getElementById('kpi-total').innerText = b2bData.total;
-            document.getElementById('kpi-concung').innerText = b2bData.by_client['Con Cưng'] || 0;
-            document.getElementById('kpi-anta').innerText = b2bData.by_client['ANTA'] || 0;
-            document.getElementById('kpi-aqua').innerText = b2bData.by_client['Aqua B2C'] || 0;
-
-            // 2. Client Chart (Doughnut)
-            const ctxClient = document.getElementById('clientChart').getContext('2d');
-            new Chart(ctxClient, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Con Cưng', 'ANTA', 'Aqua B2C'],
-                    datasets: [{
-                        data: [
-                            b2bData.by_client['Con Cưng'] || 0,
-                            b2bData.by_client['ANTA'] || 0,
-                            b2bData.by_client['Aqua B2C'] || 0
-                        ],
-                        backgroundColor: [
-                            'rgba(236, 72, 153, 0.8)',
-                            'rgba(16, 185, 129, 0.8)',
-                            'rgba(6, 182, 212, 0.8)'
-                        ],
-                        borderWidth: 0,
-                        hoverOffset: 4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { position: 'bottom', labels: { color: '#94a3b8' } }
-                    },
-                    cutout: '70%'
-                }
-            });
-
-            // 3. Warehouse Chart (Bar)
-            // Get top 10
-            const topWarehouses = b2bData.by_warehouse.slice(0, 10);
-            const ctxWH = document.getElementById('warehouseChart').getContext('2d');
-            new Chart(ctxWH, {
-                type: 'bar',
-                data: {
-                    labels: topWarehouses.map(w => w.warehouse),
-                    datasets: [{
-                        label: 'Số đơn',
-                        data: topWarehouses.map(w => w.count),
-                        backgroundColor: 'rgba(139, 92, 246, 0.7)',
-                        borderRadius: 6,
-                        borderWidth: 0
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        x: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { display: false } },
-                        y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } }
-                    }
-                }
-            });
-
-            // 4. Populate Table
-            const tbody = document.querySelector('#ordersTable tbody');
-            b2bData.orders.forEach(order => {
-                const tr = document.createElement('tr');
-                
-                let brandClass = '';
-                if (order.client.includes('Con')) brandClass = 'brand-Con';
-                else if (order.client.includes('ANTA')) brandClass = 'brand-ANTA';
-                else if (order.client.includes('Aqua')) brandClass = 'brand-Aqua';
-
-                tr.innerHTML = `
-                    <td style="font-family: monospace; font-weight: 600;">${order.order_code}</td>
-                    <td><span class="badge ${brandClass}">${order.client}</span></td>
-                    <td>${order.warehouse}</td>
-                    <td>${order.pic}</td>
-                    <td style="color: var(--warning);">${order.priority.split(':')[0] || order.priority}</td>
-                    <td><strong>${order.storage_days}</strong> ngày</td>
-                `;
-                tbody.appendChild(tr);
-            });
-        });
-    </script>
+    <script src="b2b_app.js"></script>
 </body>
 </html>

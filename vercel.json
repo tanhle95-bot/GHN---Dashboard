@@ -2,12 +2,50 @@
   "functions": {
     "api/data.py": {
       "maxDuration": 60
+    },
+    "api/b2b-data.py": {
+      "maxDuration": 60
+    },
+    "api/login.py": {
+      "maxDuration": 10
+    },
+    "api/logout.py": {
+      "maxDuration": 5
+    },
+    "api/check-auth.py": {
+      "maxDuration": 5
+    },
+    "api/cron-10h.py": {
+      "maxDuration": 60
+    },
+    "api/cron-15h.py": {
+      "maxDuration": 60
+    },
+    "api/cron-20h.py": {
+      "maxDuration": 60
     }
   },
   "rewrites": [
+    { "source": "/api/data", "destination": "/api/data.py" },
+    { "source": "/api/b2b-data", "destination": "/api/b2b-data.py" },
+    { "source": "/api/login", "destination": "/api/login.py" },
+    { "source": "/api/logout", "destination": "/api/logout.py" },
+    { "source": "/api/check-auth", "destination": "/api/check-auth.py" },
+    { "source": "/api/cron-10h", "destination": "/api/cron-10h.py" },
+    { "source": "/api/cron-15h", "destination": "/api/cron-15h.py" },
+    { "source": "/api/cron-20h", "destination": "/api/cron-20h.py" }
+  ],
+  "headers": [
     {
-      "source": "/api/data",
-      "destination": "/api/data.py"
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=(), payment=()" },
+        { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" },
+        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; connect-src 'self' https://api.telegram.org" }
+      ]
     }
   ]
 }

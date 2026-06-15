@@ -1,11 +1,14 @@
 from http.server import BaseHTTPRequestHandler
 import json
+import os
 import urllib.request
 import io
 import zipfile
 import xml.etree.ElementTree as ET
+from api.auth_middleware import check_auth, send_unauthorized, send_json
 
-URL = "https://docs.google.com/spreadsheets/d/1Kjqwt6MIghCzfCSifVrpIpVHbC0o77lxMVVFlCZ26xY/export?format=xlsx"
+ALLOWED_SHEET_ID = os.environ.get('ALLOWED_SHEET_ID', '1Kjqwt6MIghCzfCSifVrpIpVHbC0o77lxMVVFlCZ26xY')
+URL = f"https://docs.google.com/spreadsheets/d/{ALLOWED_SHEET_ID}/export?format=xlsx"
 
 def fast_parse_sheet(z, sheet_file, strings):
     sheet_xml = z.read(sheet_file)
@@ -56,6 +59,12 @@ def fast_parse_sheet(z, sheet_file, strings):
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
+        # Authentication check
+        username = check_auth(self)
+        if not username:
+            send_unauthorized(self)
+            return
+
         try:
             # 1. Tải file Excel XLSX 11MB về bộ nhớ
             req = urllib.request.Request(URL, headers={"User-Agent": "Mozilla/5.0"})
@@ -267,14 +276,8 @@ class handler(BaseHTTPRequestHandler):
             
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
-            self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
             self.wfile.write(json.dumps(data).encode('utf-8'))
             
-        except Exception as e:
-            self.send_response(500)
-            self.send_header('Content-type', 'application/json')
-            self.send_header('Access-Control-Allow-Origin', '*')
-            self.end_headers()
-            error_data = {"error": str(e)}
-            self.wfile.write(json.dumps(error_data).encode('utf-8'))
+        except Exception:
+            send_json(self, 500, {"error": "Không thể tải dữ liệu. Vui lòng thử lại sau."})
