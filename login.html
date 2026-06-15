@@ -177,6 +177,10 @@
                 })
                 .then(function(result) {
                     if (result.ok && result.data.ok) {
+                        // Set cookie from response token as fallback
+                        if (result.data.token) {
+                            document.cookie = 'session_token=' + result.data.token + '; path=/; max-age=28800; secure; samesite=strict';
+                        }
                         window.location.href = '/index.html';
                     } else {
                         errorDiv.textContent = result.data.error || 'Đăng nhập thất bại';

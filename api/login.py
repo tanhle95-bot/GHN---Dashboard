@@ -88,7 +88,7 @@ class handler(BaseHTTPRequestHandler):
         self.send_header('Content-Type', 'application/json')
         self.send_header('Set-Cookie', get_session_cookie(token))
         self.end_headers()
-        self.wfile.write(json.dumps({'ok': True, 'username': username}).encode('utf-8'))
+        self.wfile.write(json.dumps({'ok': True, 'username': username, 'token': token}).encode('utf-8'))
 
     def do_GET(self):
         send_json(self, 405, {'error': 'Method not allowed'})

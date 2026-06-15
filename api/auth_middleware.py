@@ -64,12 +64,12 @@ def verify_token(token):
 
 def get_session_cookie(token):
     """Generate Set-Cookie header value with security flags"""
-    return f'session_token={token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age={SESSION_MAX_AGE}'
+    return f'session_token={token}; Path=/; Secure; SameSite=Strict; Max-Age={SESSION_MAX_AGE}'
 
 
 def get_logout_cookie():
     """Generate Set-Cookie header to clear session"""
-    return 'session_token=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0'
+    return 'session_token=; Path=/; Secure; SameSite=Strict; Max-Age=0'
 
 
 def check_auth(handler):
