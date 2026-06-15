@@ -59,11 +59,8 @@ def fast_parse_sheet(z, sheet_file, strings):
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        # Authentication check
-        username = check_auth(self)
-        if not username:
-            send_unauthorized(self)
-            return
+        # Auth handled by frontend prompt
+
 
         try:
             # 1. Tải file Excel XLSX 11MB về bộ nhớ

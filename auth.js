@@ -1,39 +1,24 @@
-// Auth guard — include on all protected pages
+// Simple auth guard — password prompt
 (function() {
-    var token = localStorage.getItem('session_token');
-    if (!token) {
-        window.location.href = '/login.html';
-        return;
-    }
+    var PASS = 'GiaoHangNhanhB2B';
+    var saved = sessionStorage.getItem('ghn_auth');
+    if (saved === 'ok') return;
 
-    fetch('/api/check-auth', {
-        headers: { 'Authorization': 'Bearer ' + token }
-    })
-    .then(function(r) {
-        if (!r.ok) {
-            localStorage.removeItem('session_token');
-            window.location.href = '/login.html';
-        }
-    })
-    .catch(function() {
-        localStorage.removeItem('session_token');
-        window.location.href = '/login.html';
-    });
+    var input = prompt('Nhập mật khẩu để truy cập Dashboard:');
+    if (input === PASS) {
+        sessionStorage.setItem('ghn_auth', 'ok');
+    } else {
+        document.body.innerHTML = '<h2 style="color:white;text-align:center;margin-top:100px">Sai mật khẩu</h2>';
+        throw new Error('Auth failed');
+    }
 })();
 
-// Helper: add auth header to any fetch
+// Helper: authFetch (no token needed with simple auth)
 function authFetch(url, options) {
-    options = options || {};
-    options.headers = options.headers || {};
-    var token = localStorage.getItem('session_token');
-    if (token) {
-        options.headers['Authorization'] = 'Bearer ' + token;
-    }
-    return fetch(url, options);
+    return fetch(url, options || {});
 }
 
 function logout() {
-    localStorage.removeItem('session_token');
-    fetch('/api/logout', { method: 'POST' }).catch(function(){});
-    window.location.href = '/login.html';
+    sessionStorage.removeItem('ghn_auth');
+    location.reload();
 }

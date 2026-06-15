@@ -58,11 +58,8 @@ def fast_parse_sheet(z, sheet_file, strings):
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        # Authentication check
-        username = check_auth(self)
-        if not username:
-            send_unauthorized(self)
-            return
+        # Auth handled by frontend prompt
+
 
         try:
             req = urllib.request.Request(URL, headers={"User-Agent": "Mozilla/5.0"})
